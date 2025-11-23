@@ -1,154 +1,159 @@
 import streamlit as st
 import time
 import random
+import os
+from PIL import Image
 
-# --- SAYFA VE TASARIM AYARLARI ---
+# Google Gemini Kütüphanesi (Eğer yüklü değilse hata vermesin diye try-except)
+try:
+    import google.generativeai as genai
+    AI_AVAILABLE = True
+except ImportError:
+    AI_AVAILABLE = False
+
+# --- SAYFA AYARLARI ---
 st.set_page_config(page_title="Mistik Falcı", page_icon="🔮", layout="wide")
 
-# --- CSS İLE PROFESYONEL MAKYAJ ---
+# --- TASARIM (CSS) ---
 st.markdown("""
 <style>
-    /* Genel Arka Plan */
     .stApp {
         background: radial-gradient(circle at center, #2e0249 0%, #000000 100%);
         color: #fff;
     }
-    
-    /* Başlıklar */
     h1, h2, h3 {
-        font-family: 'Cinzel', serif; /* Mistik font */
-        color: #FFD700 !important; /* Altın sarısı */
+        font-family: 'Georgia', serif;
+        color: #FFD700 !important;
         text-shadow: 0px 0px 10px rgba(255, 215, 0, 0.5);
         text-align: center;
     }
-
-    /* Kart Kutuları (Tarot ve Fal Sonuçları) */
     .mystic-card {
-        background: rgba(20, 20, 20, 0.8);
+        background: rgba(20, 20, 20, 0.85);
         border: 1px solid #FFD700;
         border-radius: 15px;
         padding: 20px;
         box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
         margin-bottom: 20px;
         text-align: center;
-        animation: fadeIn 2s;
+        color: #fff;
     }
-
-    /* Animasyon Efekti */
-    @keyframes fadeIn {
-        0% { opacity: 0; transform: translateY(20px); }
-        100% { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Butonlar */
     .stButton>button {
         background: linear-gradient(45deg, #6a11cb 0%, #2575fc 100%);
         color: white;
         border: none;
-        padding: 12px 24px;
         border-radius: 25px;
         font-size: 18px;
-        font-weight: bold;
+        padding: 12px 24px;
         width: 100%;
-        transition: 0.3s;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        margin-top: 10px;
     }
     .stButton>button:hover {
-        transform: scale(1.05);
-        box-shadow: 0 8px 25px rgba(106, 17, 203, 0.6);
-    }
-
-    /* Kahve Falından Sonraki Yönlendirme Kutusu */
-    .upsell-box {
-        background: linear-gradient(90deg, #4b6cb7 0%, #182848 100%);
-        padding: 15px;
-        border-radius: 10px;
-        text-align: center;
-        border: 1px dashed #fff;
-        margin-top: 20px;
-        cursor: pointer;
+        transform: scale(1.02);
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- TAROT KARTLARI VERİTABANI (Resimli) ---
-tarot_deck = {
-    "Joker": {"img": "https://upload.wikimedia.org/wikipedia/commons/9/90/RWS_Tarot_00_Fool.jpg", "desc": "Yeni başlangıçlar, masumiyet, macera."},
-    "Büyücü": {"img": "https://upload.wikimedia.org/wikipedia/commons/d/de/RWS_Tarot_01_Magician.jpg", "desc": "Yetenek, irade gücü, arzu."},
-    "Azize": {"img": "https://upload.wikimedia.org/wikipedia/commons/8/88/RWS_Tarot_02_High_Priestess.jpg", "desc": "Sezgi, gizem, bilinçaltı."},
-    "İmparatoriçe": {"img": "https://upload.wikimedia.org/wikipedia/commons/d/d2/RWS_Tarot_03_Empress.jpg", "desc": "Bereket, doğa, annelik."},
-    "Aşıklar": {"img": "https://upload.wikimedia.org/wikipedia/commons/3/3a/RWS_Tarot_06_Lovers.jpg", "desc": "Aşk, uyum, ilişkiler, seçimler."},
-    "Güç": {"img": "https://upload.wikimedia.org/wikipedia/commons/f/f5/RWS_Tarot_08_Strength.jpg", "desc": "Cesaret, şefkat, sabır."},
-    "Ermiş": {"img": "https://upload.wikimedia.org/wikipedia/commons/4/4d/RWS_Tarot_09_Hermit.jpg", "desc": "İçsel rehberlik, yalnızlık, arayış."},
-    "Kader Çarkı": {"img": "https://upload.wikimedia.org/wikipedia/commons/3/3c/RWS_Tarot_10_Wheel_of_Fortune.jpg", "desc": "Karmik değişim, şans, dönüm noktaları."},
-    "Ölüm": {"img": "https://upload.wikimedia.org/wikipedia/commons/d/d7/RWS_Tarot_13_Death.jpg", "desc": "Bitişler, değişim, dönüşüm (Korkma, yenilenme demek)."},
-    "Şeytan": {"img": "https://upload.wikimedia.org/wikipedia/commons/5/55/RWS_Tarot_15_Devil.jpg", "desc": "Bağımlılık, maddiyat, tutku."},
-    "Yıkılan Kule": {"img": "https://upload.wikimedia.org/wikipedia/commons/5/53/RWS_Tarot_16_Tower.jpg", "desc": "Ani değişim, kaos, uyanış."},
-    "Yıldız": {"img": "https://upload.wikimedia.org/wikipedia/commons/d/db/RWS_Tarot_17_Star.jpg", "desc": "Umut, ilham, maneviyat."},
-    "Ay": {"img": "https://upload.wikimedia.org/wikipedia/commons/7/7f/RWS_Tarot_18_Moon.jpg", "desc": "Yanılsama, korku, rüyalar."},
-    "Güneş": {"img": "https://upload.wikimedia.org/wikipedia/commons/1/17/RWS_Tarot_19_Sun.jpg", "desc": "Pozitiflik, başarı, canlılık."},
-}
-
-# --- YAN MENÜ ---
+# --- AYARLAR VE API KEY ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/4743/4743167.png", width=100)
-    st.title("Ayarlar")
-    api_key = st.text_input("API Key (Opsiyonel)", type="password")
-    st.info("Key yoksa mistik demo modu çalışır.")
+    st.title("⚙️ Ayarlar")
     
-# --- ANA BAŞLIK ---
-st.title("✨ MİSTİK FALCI ✨")
-st.markdown("Geçmişin tozlu sayfalarından, geleceğin parlak ışıklarına...")
+    # 1. Önce GitHub Secrets'tan key'i almaya çalış
+    if 'GOOGLE_API_KEY' in st.secrets:
+        api_key = st.secrets['GOOGLE_API_KEY']
+        st.success("Sistem Anahtarı Aktif! 🟢")
+    else:
+        # 2. Yoksa kullanıcıdan iste
+        api_key = st.text_input("Google API Key", type="password")
+        st.caption("Key girilmezse Demo Modu çalışır.")
 
-# --- SEKME SİSTEMİ ---
+# Modeli Başlat
+model = None
+if api_key and AI_AVAILABLE:
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+    except Exception as e:
+        st.error(f"API Hatası: {e}")
+
+# --- ANA EKRAN ---
+st.title("✨ MİSTİK FALCI ✨")
+st.markdown("<p style='text-align:center;'>Geçmişin sırları, geleceğin anahtarları...</p>", unsafe_allow_html=True)
+
 tab1, tab2 = st.tabs(["☕ KAHVE FALI", "🎴 TAROT FALI"])
 
-# --------------------------
-# TAB 1: KAHVE FALI
-# --------------------------
+# --- BÖLÜM 1: KAHVE FALI ---
 with tab1:
     col1, col2 = st.columns([1, 2])
     with col1:
         st.image("https://cdn-icons-png.flaticon.com/512/3054/3054889.png", width=150)
     with col2:
-        st.write("### Fincanını Gönder, Kaderini Okuyalım")
-        isim = st.text_input("Adın:", key="kahve_isim")
-        durum = st.selectbox("Durumun:", ["Merakta", "Aşık", "Kırgın", "Umutlu", "Endişeli"], key="kahve_durum")
-    
-    uploaded_file = st.file_uploader("Fincan Fotoğrafı", type=['jpg', 'png'])
-    
+        st.write("### Fincanını Gönder")
+        isim = st.text_input("Adın:", key="k_isim")
+        durum = st.selectbox("Niyetin:", ["Genel", "Aşk", "Kariyer", "Para"], key="k_durum")
+
+    uploaded_file = st.file_uploader("Fincan Fotoğrafı Yükle", type=['jpg', 'png', 'jpeg'])
+
     if uploaded_file:
-        st.image(uploaded_file, caption="Senin Fincanın", width=300)
+        image = Image.open(uploaded_file)
+        st.image(image, caption="Fincanın", width=300)
+
+        if st.button("FALIMA BAK", key="btn_kahve"):
+            if not isim:
+                st.warning("Adını yazmadın kuzum!")
+            else:
+                with st.spinner("Telveler okunuyor..."):
+                    fal_metni = ""
+                    if model:
+                        try:
+                            # GERÇEK YAPAY ZEKA
+                            prompt = f"Sen mistik bir falcısın. Adı {isim}, niyeti {durum}. Bu kahve fincanı fotosuna bak. Gördüğün sembolleri yorumla. 3 paragraf, mistik ve umut verici yaz."
+                            response = model.generate_content([prompt, image])
+                            fal_metni = response.text
+                        except Exception as e:
+                            fal_metni = f"Bir hata oluştu: {e}"
+                    else:
+                        # DEMO MODU (API YOKSA)
+                        time.sleep(2)
+                        fal_metni = f"**Sevgili {isim},** fincanında uzun bir yol ve aydınlık bir gelecek görüyorum. {durum} konusunda kalbini ferah tut. Yakında 'A' harfli birinden haberin var. (Bu bir demo yorumdur, gerçek yorum için API Key gereklidir.)"
+                    
+                    st.balloons()
+                    st.markdown(f"""
+                    <div class="mystic-card">
+                        <h3>☕ Falcı Bacı'nın Yorumu:</h3>
+                        <p>{fal_metni}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+# --- BÖLÜM 2: TAROT FALI ---
+with tab2:
+    st.write("### 🎴 Kartlarını Seç")
+    if st.button("KARTLARI ÇEK VE YORUMLA", key="btn_tarot"):
+        kartlar = ["Joker", "Büyücü", "Azize", "İmparatoriçe", "İmparator", "Aşıklar", "Savaş Arabası", "Güç", "Ermiş", "Kader Çarkı", "Adalet", "Asılan Adam", "Ölüm", "Denge", "Şeytan", "Yıkılan Kule", "Yıldız", "Ay", "Güneş", "Mahkeme", "Dünya"]
+        secilenler = random.sample(kartlar, 3)
         
-    if st.button("FALIMA BAK", key="kahve_btn"):
-        if not isim:
-            st.warning("Adını fısıldaman gerek...")
-        else:
-            progress_text = "Fincan dönüyor..."
-            my_bar = st.progress(0, text=progress_text)
-            for percent in range(100):
-                time.sleep(0.02)
-                my_bar.progress(percent + 1, text="Telveler şekilleniyor...")
-            time.sleep(0.5)
-            my_bar.empty()
-            
-            # FAL SONUCU
-            fal_metni = f"""
-            **Ey {isim}!** Fincanın bana çok şey anlatıyor...
-            
-            Karanlık bir sıkıntın var ama fincanın dibi ferah, yani sonu aydınlık.
-            Harf görüyorum... 'M' veya 'E' harfi var isminde. Bu kişi seninle ilgili bir haber getirecek.
-            Maddi konularda bir kapı aralanıyor, anahtar görüyorum.
-            
-            *Ama dikkat et, enerjin biraz karışık... Bunu Tarot ile netleştirmemiz lazım.*
-            """
+        c1, c2, c3 = st.columns(3)
+        c1.success(f"GEÇMİŞ: {secilenler[0]}")
+        c2.warning(f"ŞİMDİ: {secilenler[1]}")
+        c3.info(f"GELECEK: {secilenler[2]}")
+        
+        with st.spinner("Kartlar yorumlanıyor..."):
+            tarot_metni = ""
+            if model:
+                # GERÇEK AI
+                prompt_tarot = f"Tarot falı bak. Seçilenler: Geçmiş={secilenler[0]}, Şimdi={secilenler[1]}, Gelecek={secilenler[2]}. Bu kombinasyonu yorumla."
+                try:
+                    response_tarot = model.generate_content(prompt_tarot)
+                    tarot_metni = response_tarot.text
+                except:
+                    tarot_metni = "Bağlantı hatası."
+            else:
+                # DEMO
+                time.sleep(2)
+                tarot_metni = f"Kartların çok güçlü çıktı! {secilenler[1]} kartı şu an bir dönüm noktasında olduğunu gösteriyor. Geleceğindeki {secilenler[2]} ise büyük bir zaferi müjdeliyor."
             
             st.markdown(f"""
             <div class="mystic-card">
-                <h3>☕ Falcı Bacı Diyor ki:</h3>
-                <p style="font-size:18px;">{fal_metni}</p>
+                <h3>🎴 Kartların Mesajı:</h3>
+                <p>{tarot_metni}</p>
             </div>
             """, unsafe_allow_html=True)
-            
-            # TAROT'A YÖNLENDİRME (UPSELL)
-            st.markdown("""
