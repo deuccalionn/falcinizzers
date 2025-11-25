@@ -6,9 +6,8 @@ import random
 try:
     from PIL import Image
     import google.generativeai as genai
-    AI_AVAILABLE = True
-except ImportError as e:
-    st.error(f"KÜTÜPHANE EKSİK: requirements.txt dosyasını kontrol et! Hata: {e}")
+except ImportError:
+    st.error("HATA: Kütüphaneler eksik. requirements.txt dosyasını kontrol et.")
     st.stop()
 
 st.set_page_config(page_title="Mistik Falcı", page_icon="🔮", layout="wide")
@@ -51,10 +50,9 @@ tarot_deck = {
 
 # --- AYARLAR ---
 with st.sidebar:
-    st.title("⚙️ Ayarlar")
+    st.title("Ayarlar")
     st.audio(MUSIC_URL, format="audio/ogg")
     
-    # API KEY
     api_key = None
     if 'GOOGLE_API_KEY' in st.secrets:
         api_key = st.secrets['GOOGLE_API_KEY']
@@ -62,16 +60,92 @@ with st.sidebar:
     else:
         api_key = st.text_input("Google API Key", type="password")
 
-# MODELLERİ BAŞLAT (KLASİK VERSİYON - GARANTİ ÇALIŞIR)
-model_text = None  # Tarot için
-model_vision = None # Kahve için
+# --- MODEL BAŞLATMA ---
+model_text = None
+model_vision = None
 
 if api_key:
     try:
         genai.configure(api_key=api_key)
-        # 1. Metin Modeli (Tarot)
-        model_text = genai.GenerativeModel('gemini-pro') 
-        # 2. Görüntü Modeli (Kahve)
+        # 404 hatası almamak için klasik modelleri kullanıyoruz
+        model_text = genai.GenerativeModel('gemini-pro')
         model_vision = genai.GenerativeModel('gemini-pro-vision')
     except Exception as e:
-        st.error(f"Model Bağlantı Hatası
+        st.error(f"Bağlantı Hatası: {e}")
+
+# --- ANA EKRAN ---
+st.title("✨ MİSTİK FALCI ✨")
+tab1, tab2 = st.tabs(["☕ KAHVE FALI", "🎴 TAROT FALI"])
+
+# --- KAHVE ---
+with tab1:
+    st.write("### Fincanını Yükle")
+    isim = st.text_input("Adın:", key="k_isim")
+    durum = st.selectbox("Niyetin:", ["Genel", "Aşk", "Kariyer", "Para"], key="k_durum")
+    uploaded_file = st.file_uploader("Fincan Fotoğrafı", type=['jpg', 'png', 'jpeg'])
+    
+    if uploaded_file and st.button("KAHVE FALIMA BAK"):
+        if not model_vision:
+            st.error("Model yüklenemedi. API Key kontrol et.")
+        else:
+            image = Image.open(uploaded_file)
+            st.image(image, width=300)
+            with st.spinner("Yorumlanıyor..."):
+                try:
+                    prompt = f"Falcı ol. Ad: {isim}. Fincanı yorumla. Mistik ol."
+                    res = model_vision.generate_content([prompt, image])
+                    st.markdown(f'<div class="mystic-card">{res.text}</div>', unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"Hata: {e}")
+
+# --- TAROT ---
+with tab2:
+    st.write("### 🎴 Kartlarını Seç")
+    if 'tarot_durum' not in st.session_state:
+        st.session_state.update({'tarot_durum': 'kapali', 'secilen_kartlar': [], 'tarot_yorum': ''})
+
+    if st.session_state['tarot_durum'] == 'acik':
+        if st.button("🔄 Yeni Fal"):
+            st.session_state['tarot_durum'] = 'kapali'
+            st.rerun()
+
+    c1, c2, c3 = st.columns(3)
+
+    if st.session_state['tarot_durum'] == 'kapali':
+        with c1: st.image(CARD_BACK, caption="Geçmiş")
+        with c2: st.image(CARD_BACK, caption="Şimdi")
+        with c3: st.image(CARD_BACK, caption="Gelecek")
+        
+        if st.button("KARTLARI ÇEK 🔮"):
+            if not model_text:
+                st.error("Model yüklenemedi. API Key kontrol et.")
+            else:
+                kartlar = random.sample(list(tarot_deck.keys()), 3)
+                st.session_state['secilen_kartlar'] = kartlar
+                
+                # Animasyon
+                with c1:
+                    with st.spinner("."): time.sleep(0.5)
+                    st.image(tarot_deck[kartlar[0]])
+                with c2:
+                    with st.spinner("."): time.sleep(0.5)
+                    st.image(tarot_deck[kartlar[1]])
+                with c3:
+                    with st.spinner("."): time.sleep(0.5)
+                    st.image(tarot_deck[kartlar[2]])
+                
+                try:
+                    res = model_text.generate_content(f"Tarot bak. Kartlar: {kartlar}. Mistik hikaye yaz.")
+                    st.session_state['tarot_yorum'] = res.text
+                    st.session_state['tarot_durum'] = 'acik'
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Hata: {e}")
+
+    else:
+        k = st.session_state['secilen_kartlar']
+        with c1: st.image(tarot_deck[k[0]], caption=f"GEÇMİŞ: {k[0]}")
+        with c2: st.image(tarot_deck[k[1]], caption=f"ŞİMDİ: {k[1]}")
+        with c3: st.image(tarot_deck[k[2]], caption=f"GELECEK: {k[2]}")
+        st.balloons()
+        st.markdown(f'<div class="mystic-card"><h3>🎴 Yorum:</h3><p>{st.session_state["tarot_yorum"]}</p></div>', unsafe_allow_html=True)
