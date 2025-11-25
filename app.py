@@ -61,15 +61,12 @@ with st.sidebar:
         api_key = st.text_input("Google API Key", type="password")
 
 # --- MODEL BAŞLATMA ---
-model_text = None
-model_vision = None
-
+model = None
 if api_key:
     try:
         genai.configure(api_key=api_key)
-        # 404 hatası almamak için klasik modelleri kullanıyoruz
-        model_text = genai.GenerativeModel('gemini-pro')
-        model_vision = genai.GenerativeModel('gemini-pro-vision')
+        # En yeni ve hızlı model (Hem resim hem yazı bakar)
+        model = genai.GenerativeModel('gemini-1.5-flash')
     except Exception as e:
         st.error(f"Bağlantı Hatası: {e}")
 
@@ -85,18 +82,24 @@ with tab1:
     uploaded_file = st.file_uploader("Fincan Fotoğrafı", type=['jpg', 'png', 'jpeg'])
     
     if uploaded_file and st.button("KAHVE FALIMA BAK"):
-        if not model_vision:
+        if not model:
             st.error("Model yüklenemedi. API Key kontrol et.")
         else:
             image = Image.open(uploaded_file)
             st.image(image, width=300)
             with st.spinner("Yorumlanıyor..."):
                 try:
-                    prompt = f"Falcı ol. Ad: {isim}. Fincanı yorumla. Mistik ol."
-                    res = model_vision.generate_content([prompt, image])
+                    prompt = f"Falcı ol. Ad: {isim}. Fincanı yorumla. Mistik, pozitif 3 paragraf."
+                    res = model.generate_content([prompt, image])
                     st.markdown(f'<div class="mystic-card">{res.text}</div>', unsafe_allow_html=True)
                 except Exception as e:
-                    st.error(f"Hata: {e}")
+                    st.error(f"Hata oluştu: {e}")
+                    # Hata ayıklama için modelleri listele
+                    try:
+                        st.warning("Erişilebilir modeller:")
+                        for m in genai.list_models():
+                            st.write(m.name)
+                    except: pass
 
 # --- TAROT ---
 with tab2:
@@ -117,7 +120,7 @@ with tab2:
         with c3: st.image(CARD_BACK, caption="Gelecek")
         
         if st.button("KARTLARI ÇEK 🔮"):
-            if not model_text:
+            if not model:
                 st.error("Model yüklenemedi. API Key kontrol et.")
             else:
                 kartlar = random.sample(list(tarot_deck.keys()), 3)
@@ -135,7 +138,7 @@ with tab2:
                     st.image(tarot_deck[kartlar[2]])
                 
                 try:
-                    res = model_text.generate_content(f"Tarot bak. Kartlar: {kartlar}. Mistik hikaye yaz.")
+                    res = model.generate_content(f"Tarot bak. Kartlar: {kartlar}. Mistik hikaye yaz.")
                     st.session_state['tarot_yorum'] = res.text
                     st.session_state['tarot_durum'] = 'acik'
                     st.rerun()
