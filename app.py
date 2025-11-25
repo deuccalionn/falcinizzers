@@ -13,6 +13,12 @@ except ImportError:
 # --- SAYFA AYARLARI ---
 st.set_page_config(page_title="Mistik Falcı", page_icon="🔮", layout="wide")
 
+# --- SABİT URL'LER (Linkler burada, kodun içi temiz) ---
+ICON_URL = "https://cdn-icons-png.flaticon.com/512/4743/4743167.png"
+COFFEE_ICON = "https://cdn-icons-png.flaticon.com/512/3054/3054889.png"
+CARD_BACK_URL = "https://i.pinimg.com/originals/70/4f/2e/704f2e04eb58172c3426e959600994f3.jpg"
+MUSIC_URL = "https://upload.wikimedia.org/wikipedia/commons/0/0b/Erik_Satie_-_Gnossienne_1.ogg"
+
 # --- TAROT KARTLARI VERİTABANI ---
 tarot_deck = {
     "Joker": "https://upload.wikimedia.org/wikipedia/commons/9/90/RWS_Tarot_00_Fool.jpg",
@@ -38,21 +44,10 @@ tarot_deck = {
     "Mahkeme": "https://upload.wikimedia.org/wikipedia/commons/d/dd/RWS_Tarot_20_Judgement.jpg",
     "Dünya": "https://upload.wikimedia.org/wikipedia/commons/f/ff/RWS_Tarot_21_World.jpg"
 }
-CARD_BACK_URL = "https://i.pinimg.com/originals/70/4f/2e/704f2e04eb58172c3426e959600994f3.jpg"
 
 # --- TASARIM (CSS) ---
 st.markdown("""
 <style>
     .stApp { background: radial-gradient(circle at center, #1a0b2e 0%, #000000 100%); color: #fff; }
     h1, h2, h3 { font-family: 'Georgia', serif; color: #FFD700 !important; text-shadow: 0px 0px 10px rgba(255, 215, 0, 0.5); text-align: center; }
-    .mystic-card { background: rgba(25, 25, 25, 0.9); border: 1px solid #FFD700; border-radius: 15px; padding: 20px; box-shadow: 0 0 20px rgba(255, 215, 0, 0.3); margin-top: 20px; color: #ddd; }
-    .stButton>button { background: linear-gradient(90deg, #6a11cb 0%, #2575fc 100%); color: white; border: none; border-radius: 25px; font-size: 18px; padding: 12px 24px; width: 100%; margin-top: 15px; }
-    .stButton>button:hover { transform: scale(1.03); box-shadow: 0 5px 15px rgba(100, 100, 255, 0.4); }
-    /* Müzik çaları biraz özelleştir */
-    .stAudio { width: 100%; margin-top: 5px; }
-</style>
-""", unsafe_allow_html=True)
-
-# --- KENAR ÇUBUĞU ---
-with st.sidebar:
-    st.image("
+    .mystic-
